@@ -1,16 +1,19 @@
 import { startPracticeApp } from './server.ts';
 
-const value = process.argv[2] ?? '4355';
+const args = process.argv.slice(2);
+const demo = !args.includes('--empty');
+const ports = args.filter(arg => arg !== '--empty');
+const value = ports[0] ?? '4355';
 const port = Number(value);
-if (!/^\d+$/.test(value) || !Number.isInteger(port) || port < 0 || port > 65535) {
+if (ports.length > 1 || !/^\d+$/.test(value) || !Number.isInteger(port) || port < 0 || port > 65535) {
   console.error('Choose a port between 0 and 65535. Use 0 to allocate a free port.');
   process.exit(1);
 }
 
 try {
-  const app = await startPracticeApp(port);
+  const app = await startPracticeApp(port, { demo });
   console.log('Flowstride Practice is running at ' + app.origin);
-  console.log('Press Ctrl+C to stop. Restarting restores the sample data.');
+  console.log(demo ? 'Sample bookings are loaded. Restarting resets them.' : 'Starting with an empty booking workspace.');
   const stop = () => { void app.close(); };
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);

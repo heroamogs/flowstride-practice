@@ -4,23 +4,46 @@ export const escape = (text: string) => text.replace(/[&<>"']/g, char =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
 export const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
-export function layout(title: string, content: string, account?: Account) {
+export type WorkspacePage = 'overview' | 'bookings' | 'review' | 'users';
+
+function workspaceLinks(account: Account, current?: WorkspacePage) {
+  const links: [WorkspacePage, string, string][] = [
+    ['overview', '/account', current ? 'Overview' : 'Account'],
+    ['bookings', '/bookings', 'My bookings'],
+  ];
+  if (account.role !== 'member') links.push(['review', '/bookings/review', 'Review bookings']);
+  if (account.role === 'admin') links.push(['users', '/admin', 'Manage users']);
+  return links.map(([key, href, label]) =>
+    `<a href="${href}"${current === key ? ' aria-current="page"' : ''}>${label}</a>`).join('');
+}
+
+export function layout(title: string, content: string, account?: Account, workspace?: WorkspacePage) {
+  const signOut = '<form method="post" action="/logout"><button class="quiet">Sign out</button></form>';
   const nav = account
-    ? `<a href="/bookings">My bookings</a><a href="/account">Account</a>${account.role !== 'member' ? '<a href="/bookings/review">Review bookings</a>' : ''}${account.role === 'admin' ? '<a href="/admin">Manage users</a>' : ''}
-       <form method="post" action="/logout"><button class="quiet">Sign out</button></form>`
-    : '<a href="/login">Sign in</a>';
+    ? (workspace ? signOut : workspaceLinks(account) + signOut)
+    : '<a href="/login">Sign in</a><a class="signup-link" href="/signup">Sign up</a>';
+  const sidebar = account && workspace ? `<aside class="workspace-sidebar">
+    <nav aria-label="Workspace navigation">${workspaceLinks(account, workspace)}</nav>
+    <div class="workspace-identity"><span class="user-mark" aria-hidden="true">${escape(account.name.slice(0, 1).toUpperCase())}</span>
+      <div><strong>${escape(account.name)}</strong><span>${roleLabels[account.role]}</span></div>
+    </div>
+  </aside>` : '';
+  const body = workspace
+    ? `<div class="workspace-shell">${sidebar}<main id="main-content" class="workspace-main">${content}</main></div>`
+    : `<main id="main-content">${content}</main>`;
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title} | Flowstride Practice</title>
+<title>${escape(title)} | Flowstride Practice</title>
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to content</a>
 <header class="topbar"><a class="brand" href="/"><img src="/flowstride-logo.png" alt="" width="35" height="35"> Flowstride Practice</a>
 <nav aria-label="Main navigation"><a href="/">Catalog</a>${nav}</nav></header>
-<main>${content}</main>
+${body}
 </body>
 </html>`;
 }
@@ -56,21 +79,15 @@ export function catalogPage(cars: Car[], category: string, account?: Account, se
 </section>`, account);
 }
 
-export function loginPage(error = '', next = '') {
-  return layout('Sign in', `<section class="panel narrow"><h1>Sign in</h1>
+export function loginPage(error = '', next = '', registered = false) {
+  return layout('Sign in', `<section class="panel narrow auth-panel"><h1>Sign in</h1>
+  ${registered ? '<p class="notice notice-success" role="status">Account verified. Sign in to continue.</p>' : ''}
   ${error ? `<p class="notice" role="alert">${escape(error)}</p>` : ''}
   <form method="post" action="/login${next ? '?next=' + encodeURIComponent(next) : ''}">
     <label>Email <input id="login-email" name="email" type="email" autocomplete="username" required></label>
     <label>Password <input id="login-password" name="password" type="password" autocomplete="current-password" required></label>
     <button>Sign in</button>
   </form></section>`);
-}
-
-export function accountPage(account: Account) {
-  return layout('Your account', `<section class="panel narrow" data-user-id="${account.id}"><h1>Your account</h1>
-  <p>Signed in as ${escape(account.name)}</p><dl><dt>Role</dt><dd>${roleLabels[account.role]}</dd></dl>
-  ${account.role === 'approver' ? '<p class="discount">Can approve bookings</p>' : ''}
-  </section>`, account);
 }
 
 export function adminPage(accounts: Account[], admin: Account, error = '') {
@@ -85,7 +102,8 @@ export function adminPage(accounts: Account[], admin: Account, error = '') {
       </form>
     </li>`;
   }).join('');
-  return layout('Manage users', `<h1>Manage users</h1>
+  return layout('Manage users', `<header class="workspace-title"><div><h1>Manage users</h1><p>Create practice accounts and control their access.</p></div>
+    <span class="role-pill">${accounts.length} accounts</span></header>
   ${error ? `<p class="notice" role="alert">${escape(error)}</p>` : ''}
   <div class="admin-layout">
     <section class="panel"><h2>Create a user</h2>
@@ -97,7 +115,7 @@ export function adminPage(accounts: Account[], admin: Account, error = '') {
       </form>
     </section>
     <section class="panel"><h2>Workspace users</h2><ul class="members">${rows}</ul></section>
-  </div>`, admin);
+  </div>`, admin, 'users');
 }
 
 export function errorPage(message: string, account?: Account) {

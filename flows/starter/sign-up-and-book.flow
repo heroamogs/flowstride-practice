@@ -1,0 +1,41 @@
+Feature: Sign up and book a car as a Member
+import { prepareSignupDriver } from "practice/user-fixtures.ts";
+
+Scenario: A new Member verifies their email and books their first car
+  Given "Open sign-up with unique practice details"
+    flow.fixture.use prepareSignupDriver() as "driver";
+    flow.open "/";
+    flow.click link "Sign up";
+  When "Submit the sign-up form"
+    flow.type input "Full name" "@driver.name";
+    flow.type input "Email" "@driver.email";
+    flow.passcode input "Password" "@driver.password";
+    flow.click button "Create account";
+  When "Read the code from the simulated inbox"
+    flow.expect visible "Verify your email";
+    flow.click link "practice inbox";
+    flow.expect visible "@driver.email";
+    flow.extract text "#verification-code" as "signupCode";
+    flow.click link "Back to verification";
+  When "Verify the new account and sign in"
+    flow.passcode input "Verification code" "@signupCode";
+    flow.click button "Verify email";
+    flow.expect visible "Account verified. Sign in to continue.";
+    flow.type input "Email" "@driver.email";
+    flow.passcode input "Password" "@driver.password";
+    flow.click button "Sign in";
+  When "Confirm the signed-in account is a Member"
+    flow.assert.that {"selector":"#account-role","condition":"text","value":"Member"};
+    flow.expect visible "@driver.email";
+  When "Choose a car and make a booking"
+    flow.click link "Catalog";
+    flow.click link "View Kite 002";
+    flow.set input "Pickup date" to "2030-10-12";
+    flow.set input "Return date" to "2030-10-15";
+    flow.select "Payment succeeds" from "Simulated payment";
+    flow.click button "Place booking";
+  Then "The Member can see the booking awaiting approval"
+    flow.expect visible "My bookings";
+    flow.assert.that {"selector":".booking th a","condition":"text","value":"Kite 002"};
+    flow.assert.that {"selector":".booking .status","condition":"text","value":"Awaiting approval"};
+    flow.assert.that {"selector":".booking .booking-total","condition":"text","value":"$369.00"};

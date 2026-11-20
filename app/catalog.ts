@@ -55,10 +55,15 @@ export interface Account {
   role: Role;
 }
 
-export function seedAccounts(): Map<string, Account> {
+export function seedAccounts(demo = false): Map<string, Account> {
   const accounts: Account[] = [
     { id: 'driver', name: 'Practice Driver', email: 'driver@example.test', password: 'practice-driver', role: 'member' },
     { id: 'admin', name: 'Practice Admin', email: 'admin@example.test', password: 'practice-admin', role: 'admin' },
   ];
+  if (demo) accounts.push(
+    { id: 'demo-approver', name: 'Jordan Reed', email: 'approver@example.test', password: 'practice-approver', role: 'approver' },
+    { id: 'demo-maya', name: 'Maya Chen', email: 'maya@example.test', password: 'practice-maya', role: 'member' },
+    { id: 'demo-kemi', name: 'Kemi Taylor', email: 'kemi@example.test', password: 'practice-kemi', role: 'member' },
+  );
   return new Map(accounts.map(account => [account.id, account]));
 }

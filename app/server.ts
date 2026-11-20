@@ -2,10 +2,13 @@ import fs from 'node:fs';
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { catalog, categories, deliveryOptions, seedAccounts, type Account } from './catalog.ts';
-import { accountPage, adminPage, catalogPage, errorPage, loginPage } from './pages.ts';
-import { bookingsPage, carPage } from './booking-pages.ts';
-import { canApprove, createBookingStore } from './booking.ts';
+import { adminPage, catalogPage, errorPage, loginPage } from './pages.ts';
+import { bookingDetails, bookingsPage, carPage, receiptPage, retryReceiptPage } from './booking-pages.ts';
+import { bookingStatuses, canApprove, createBookingStore, receiptData, seedDemoBookings } from './booking.ts';
+import { dashboardPage } from './dashboard.ts';
 import { InputError, field, readForm } from './request.ts';
+import { createSignupStore, verificationMinutes } from './signup.ts';
+import { inboxPage, signupPage, verifyEmailPage } from './signup-pages.ts';
 
 const publicAssets = new Map([
   ['/styles.css', 'text/css; charset=utf-8'],
@@ -25,22 +28,31 @@ function redirect(res: http.ServerResponse, location: string) {
   res.writeHead(303, { Location: location }).end();
 }
 
+function readCookie(req: http.IncomingMessage, name: string) {
+  return req.headers.cookie?.split(/;\s*/).find(value => value.startsWith(name + '='))?.slice(name.length + 1) || '';
+}
+
 const publicAccount = ({ id, name, email, role }: Account) => ({ id, name, email, role });
 
-export async function startPracticeApp(port = 4355) {
+export async function startPracticeApp(port = 4355, { demo = false } = {}) {
   const bookings = createBookingStore();
-  const accounts = seedAccounts();
+  const accounts = seedAccounts(demo);
+  if (demo) seedDemoBookings(bookings, accounts);
   const sessions = new Map<string, string>();
+  const signups = createSignupStore();
   const interruptedRoleSaves = new Set<string>();
   let nextId = 1;
   let origin: string;
   let host: string;
   let cookieName: string;
+  let signupCookieName: string;
 
   const cookie = (sid: string) => cookieName + '=' + sid + '; Path=/; HttpOnly; SameSite=Strict';
+  const signupCookie = (token: string, maxAge: number) =>
+    signupCookieName + '=' + token + '; Path=/; HttpOnly; SameSite=Strict; Max-Age=' + maxAge;
   const findEmail = (value: string) => [...accounts.values()].find(user => user.email === value.trim().toLowerCase());
 
-  function createAccount(body: Record<string, unknown>) {
+  function validateAccountDetails(body: Record<string, unknown>) {
     const name = field(body, 'name').trim();
     const email = field(body, 'email').trim().toLowerCase();
     const password = field(body, 'password');
@@ -49,7 +61,12 @@ export async function startPracticeApp(port = 4355) {
       throw new InputError(400, 'Enter a name, an email address, and a password of 8 to 128 characters.');
     }
     if (findEmail(email)) throw new InputError(409, 'That email address is already in use.');
-    const user: Account = { id: 'user-' + nextId++, name, email, password, role: 'member' };
+    return { name, email, password };
+  }
+
+  function createAccount(body: Record<string, unknown>) {
+    const details = validateAccountDetails(body);
+    const user: Account = { id: 'user-' + nextId++, ...details, role: 'member' };
     accounts.set(user.id, user);
     return user;
   }
@@ -84,13 +101,16 @@ export async function startPracticeApp(port = 4355) {
     if (url.origin !== origin) return json(res, 403, { error: 'Use the local practice app address.' });
     const route = url.pathname;
     const method = req.method;
-    const sid = req.headers.cookie?.split(/;\s*/).find(c => c.startsWith(cookieName + '='))?.slice(cookieName.length + 1);
+    const sid = readCookie(req, cookieName);
+    const signupToken = readCookie(req, signupCookieName);
+    let signupFields: { name: string; email: string } | undefined;
     const accountId = sid ? sessions.get(sid) : undefined;
     const account = accountId ? accounts.get(accountId) : undefined;
     const isApi = route.startsWith('/api/');
     const returnPath = url.searchParams.get('next') || '';
     const next = /^\/cars\/CAR-\d{3}$/.test(returnPath) ? returnPath : '';
     const adminRoute = route === '/admin' || route.startsWith('/admin/') || route.startsWith('/api/admin/');
+    const bookingView = /^\/bookings\/(BK-\d+)(?:\/(receipt|receipt\/download))?$/.exec(route);
     try {
       if (method === 'GET' && route === '/health') return json(res, 200, { status: 'ready' });
       const contentType = publicAssets.get(route);
@@ -121,8 +141,40 @@ export async function startPracticeApp(port = 4355) {
         const option = deliveryOptions[delivery as keyof typeof deliveryOptions];
         return json(res, 200, { sku: car.sku, method: delivery, ...option, totalCents: car.finalPriceCents + option.deliveryCents });
       }
+      if (route === '/signup' || route === '/verify-email' || route === '/practice-inbox') {
+        if (account) return redirect(res, '/account');
+        if (route === '/signup') {
+          if (method === 'GET') return html(res, signupPage());
+          if (method === 'POST') {
+            const body = await readForm(req);
+            signupFields = {
+              name: field(body, 'name').trim().slice(0, 80),
+              email: field(body, 'email').trim().slice(0, 150),
+            };
+            const details = validateAccountDetails(body);
+            if (!details.email.endsWith('.test')) {
+              throw new InputError(400, 'Use a fictional email address ending in .test, such as driver-new@example.test.');
+            }
+            const token = signups.start(details, signupToken);
+            res.setHeader('Set-Cookie', signupCookie(token, verificationMinutes * 60));
+            return redirect(res, '/verify-email');
+          }
+        }
+        if (method === 'GET' && (route === '/verify-email' || route === '/practice-inbox')) {
+          const signup = signups.find(signupToken);
+          if (!signup) return redirect(res, '/signup');
+          const { email } = signup.details;
+          return html(res, route === '/practice-inbox' ? inboxPage(email, signup.code) : verifyEmailPage(email));
+        }
+        if (method === 'POST' && route === '/verify-email') {
+          const details = signups.consume(signupToken, field(await readForm(req), 'code'));
+          res.setHeader('Set-Cookie', signupCookie('', 0));
+          createAccount(details);
+          return redirect(res, '/login?registered=1');
+        }
+      }
       if (method === 'GET' && route === '/login') {
-        return account ? redirect(res, next || '/account') : html(res, loginPage('', next));
+        return account ? redirect(res, next || '/account') : html(res, loginPage('', next, url.searchParams.get('registered') === '1'));
       }
       if (method === 'POST' && (route === '/login' || route === '/api/session')) {
         const body = await readForm(req);
@@ -144,7 +196,7 @@ export async function startPracticeApp(port = 4355) {
       }
       if (method === 'GET' && (route === '/account' || route === '/api/account')) {
         if (!account) return isApi ? json(res, 401, { error: 'Sign in first.' }) : redirect(res, '/login');
-        return isApi ? json(res, 200, publicAccount(account)) : html(res, accountPage(account));
+        return isApi ? json(res, 200, publicAccount(account)) : html(res, dashboardPage(account, bookings.all(), accounts));
       }
 
       const carDetail = /^\/cars\/(CAR-\d{3})$/.exec(route);
@@ -152,6 +204,16 @@ export async function startPracticeApp(port = 4355) {
         const car = catalog.find(item => item.sku === carDetail[1]);
         if (!car) throw new InputError(404, 'That car could not be found.');
         return html(res, carPage(car, account));
+      }
+
+      if (method === 'GET' && bookingView) {
+        if (!account) return redirect(res, '/login');
+        const [, id, resource] = bookingView;
+        if (!resource) return html(res, bookingDetails(bookings.findVisible(account, id!), account));
+        const booking = bookings.receipt(account, id!, resource === 'receipt');
+        if (resource === 'receipt') return html(res, receiptPage(booking, account));
+        res.setHeader('Content-Disposition', 'attachment; filename="receipt-' + booking.id + '.json"');
+        return json(res, 200, receiptData(booking));
       }
 
       const bookingAction = /^\/(?:api\/)?bookings\/(BK-\d+)\/(approve|cancel)$/.exec(route);
@@ -165,7 +227,9 @@ export async function startPracticeApp(port = 4355) {
         if (method === 'GET' && !bookingAction) {
           if (review && !canApprove(account)) throw new InputError(403, 'Booking approval requires an approver or administrator.');
           const records = review ? bookings.all() : bookings.forAccount(account);
-          return isApi ? json(res, 200, { bookings: records }) : html(res, bookingsPage(records, account, review));
+          if (isApi) return json(res, 200, { bookings: records });
+          const selection = bookingStatuses.find(status => status === url.searchParams.get('status'));
+          return html(res, bookingsPage(records, account, review, accounts, selection));
         }
         if (method === 'POST' && !bookingAction && !bookingDetail && !review) {
           const body = await readForm(req);
@@ -182,7 +246,10 @@ export async function startPracticeApp(port = 4355) {
         if (method === 'POST' && bookingAction) {
           const action = bookingAction[2] === 'approve' ? 'approve' : 'cancel';
           const booking = bookings.update(account, bookingAction[1]!, action);
-          return isApi ? json(res, 200, booking) : redirect(res, action === 'approve' ? '/bookings/review' : '/bookings');
+          if (isApi) return json(res, 200, booking);
+          const returnTo = url.searchParams.get('from') === 'overview'
+            ? '/account' : action === 'approve' ? '/bookings/review' : '/bookings';
+          return redirect(res, returnTo);
         }
       }
 
@@ -217,6 +284,15 @@ export async function startPracticeApp(port = 4355) {
       const invalidJson = error instanceof SyntaxError;
       const status = error instanceof InputError ? error.status : invalidJson ? 400 : 500;
       const message = error instanceof InputError ? error.message : invalidJson ? 'Invalid JSON.' : 'The practice app could not complete the request.';
+      if (account && bookingView?.[2] === 'receipt' && status === 503) {
+        return html(res, retryReceiptPage(bookingView[1]!, account), status);
+      }
+      if (route === '/signup') return html(res, signupPage(message, signupFields), status);
+      if (route === '/verify-email') {
+        const signup = signups.find(signupToken);
+        if (!signup) res.setHeader('Set-Cookie', signupCookie('', 0));
+        return html(res, verifyEmailPage(signup?.details.email, message), status);
+      }
       if (!isApi && route === '/login') return html(res, loginPage(message, next), status);
       if (!isApi && account?.role === 'admin' && adminRoute) {
         return html(res, adminPage([...accounts.values()], account, message), status);
@@ -245,6 +321,7 @@ export async function startPracticeApp(port = 4355) {
       host = '127.0.0.1:' + address.port;
       origin = 'http://' + host;
       cookieName = 'flowstride_practice_' + address.port;
+      signupCookieName = 'flowstride_signup_' + address.port;
       resolve();
     });
   });

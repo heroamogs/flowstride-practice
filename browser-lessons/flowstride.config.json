@@ -1,0 +1,9 @@
+{
+  "baseUrl": "http://127.0.0.1:4355",
+  "testDir": "browser-lessons",
+  "helpersDir": "helpers",
+  "headless": true,
+  "retries": 1,
+  "cloudSync": false,
+  "artifactsDir": "flowstride-artifacts/browser"
+}

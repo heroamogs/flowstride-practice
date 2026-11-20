@@ -1,0 +1,15 @@
+Feature: Verify the full practice catalog
+import { checkCatalogPrices, checkDeliveryQuotes } from "practice/catalog.ts";
+
+Scenario: Compare all displayed prices and delivery quotes with the catalog rules
+  Given "Load the catalog through its API and open the catalog page"
+    flow.get "/api/cars";
+    flow.expect status "200";
+    flow.extract resBody "cars" as "cars";
+    flow.open "/";
+  When "Match every displayed card by SKU and check delivery totals"
+    flow.call checkCatalogPrices(page, "@cars") as "checkedCars";
+    flow.call checkDeliveryQuotes(page, "@cars") as "checkedQuotes";
+  Then "All 50 cars and four fulfillment options match"
+    flow.assert.value {"actual":"@checkedCars","operator":"equals","expected":50};
+    flow.assert.value {"actual":"@checkedQuotes","operator":"equals","expected":4};

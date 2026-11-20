@@ -1,0 +1,36 @@
+Feature: Admin creates a user and grants booking approval in the browser
+import { preparePracticeUser } from "practice/user-fixtures.ts";
+
+Scenario: Create and approve a user from Manage users
+  Given "Prepare unique test details and sign in as the admin"
+    flow.fixture.use preparePracticeUser("practiceBookingApprover") as "account";
+    flow.open "/login";
+    flow.type input "Email" "admin@example.test";
+    flow.passcode input "Password" "practice-admin";
+    flow.click button "Sign in";
+    flow.click link "Manage users";
+  When "Fill in the new user's details"
+    flow.type input "Full name" "@account.name";
+    flow.type input "User email" "@account.email";
+    flow.passcode input "Temporary password" "@account.password";
+  When "Create the user and find their row"
+    flow.click button "Create user";
+    flow.expect visible "@account.email";
+    flow.extract attribute ".member:has-text('@account.email')" "data-user-id" as "newUserId";
+    flow.assert.that {
+      "selector":".member[data-user-id='@newUserId'] .saved-role",
+      "condition":"text","value":"Saved role · Member"
+    };
+  When "Assign Booking approver to the new user"
+    flow.select "Booking approver" from "#role-@newUserId";
+    flow.click ".member[data-user-id='@newUserId'] button";
+  Then "Confirm the saved role and hand off this account"
+    flow.assert.that {
+      "selector":".member[data-user-id='@newUserId'] .saved-role",
+      "condition":"text","value":"Saved role · Booking approver","timeout":2000
+    };
+    flow.handoff.publish {
+      "name":"practiceBookingApprover",
+      "value":{"id":"@newUserId","email":"@account.email"},
+      "credentials":{"password":"@account.password"}
+    };

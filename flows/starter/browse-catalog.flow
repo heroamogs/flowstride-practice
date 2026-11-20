@@ -1,0 +1,12 @@
+Feature: Browse the practice car catalog
+
+Scenario: Filter the catalog and check a discounted price
+  Given "The catalog is open"
+    flow.open "/";
+  When "Filter by hatchback"
+    flow.select "Hatchback" from "#category";
+    flow.click button "Filter cars";
+  Then "Only hatchbacks are shown and Kite 001 is discounted"
+    flow.expect text "10 cars";
+    flow.expect text "Kite 001";
+    flow.expect text "$10,800.00";

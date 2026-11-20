@@ -1,0 +1,17 @@
+Feature: New user signs in with booking approval
+
+Scenario: Use the admin's successful account in a separate browser session
+  Given "Wait for the approved account and open the sign-in form"
+    flow.handoff.receive {"name":"practiceBookingApprover","as":"member","credentialsAs":"login"};
+    flow.open "/login";
+  When "Sign in using the handed-off credentials"
+    flow.type input "Email" "@member.email";
+    flow.passcode input "Password" "@login.password";
+    flow.click button "Sign in";
+  Then "The approved account opens with booking approval"
+    flow.expect visible "Your account";
+    flow.assert.that {
+      "selector":"section[data-user-id]",
+      "condition":"attribute","attribute":"data-user-id","value":"@member.id"
+    };
+    flow.expect visible "Can approve bookings";

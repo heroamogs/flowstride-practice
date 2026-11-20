@@ -1,0 +1,15 @@
+{
+  "name": "flowstride-practice",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A local car rental application for learning Flowstride",
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning --experimental-strip-types app/start.ts",
+    "lesson": "flowstride run",
+    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test tests/*.test.ts",
+    "test:flows": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/run-flows.ts"
+  },
+  "devDependencies": { "flowstride": "2.0.0" }
+}

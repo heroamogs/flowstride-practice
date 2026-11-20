@@ -1,0 +1,29 @@
+Feature: Book a car after a simulated payment decline
+import { createPracticeDriver } from "practice/user-fixtures.ts";
+
+Scenario: A decline leaves the dates available for a successful booking
+  Given "Set up and sign in as a temporary driver"
+    flow.fixture.use createPracticeDriver() as "driver";
+    flow.open "/login";
+    flow.type input "Email" "@driver.email";
+    flow.passcode input "Password" "@driver.password";
+    flow.click button "Sign in";
+  When "Try to book Kite 001 with a declined payment"
+    flow.open "/cars/CAR-001";
+    flow.set input "Pickup date" to "2030-06-12";
+    flow.set input "Return date" to "2030-06-15";
+    flow.select "Payment is declined" from "Simulated payment";
+    flow.click button "Place booking";
+    flow.assert.that {"selector":"[role=alert]","condition":"containsText","value":"Simulated payment declined.","timeout":3000};
+  When "Use a successful payment result on the same dates"
+    flow.expect value "Pickup date" "2030-06-12";
+    flow.select "Payment succeeds" from "Simulated payment";
+    flow.click button "Place booking";
+    flow.expect visible "My bookings";
+    flow.expect visible "Kite 001";
+    flow.expect visible "Awaiting approval";
+    flow.assert.that {"selector":".booking-total","condition":"containsText","value":"$324.00","timeout":3000};
+  When "Release the dates by cancelling the booking"
+    flow.click ".booking[data-status=pending] button";
+  Then "The booking remains visible as cancelled"
+    flow.expect visible "Cancelled";

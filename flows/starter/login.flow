@@ -1,0 +1,12 @@
+Feature: Sign in to the practice app
+
+Scenario: A practice driver opens their account
+  Given "The sign-in form is open"
+    flow.open "/login";
+  When "Sign in with the seeded driver account"
+    flow.type input "Email" "driver@example.test";
+    flow.passcode input "Password" "practice-driver";
+    flow.click button "Sign in";
+  Then "The driver account opens"
+    flow.expect visible "Your account";
+    flow.expect text "Signed in as Practice Driver";

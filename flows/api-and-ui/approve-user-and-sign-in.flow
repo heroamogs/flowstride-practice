@@ -1,0 +1,43 @@
+Feature: Approve a user through the API and sign in through the browser
+import { preparePracticeUser } from "practice/user-fixtures.ts";
+
+Scenario: The same account moves from API creation to browser sign-in
+  Given "Sign in to the practice API as the admin"
+    flow.fixture.use preparePracticeUser() as "account";
+    flow.api.create {"name":"administrator","cookies":true};
+    flow.api.use {"name":"administrator"};
+    flow.api.request {
+      "method":"POST","url":"/api/session",
+      "json":{"email":"admin@example.test","password":"practice-admin"}
+    };
+    flow.expect status "200";
+    flow.expect resBody "role" equals "admin";
+  When "Create a new member through the API"
+    flow.api.request {
+      "method":"POST","url":"/api/admin/users",
+      "json":{"name":"@account.name","email":"@account.email","password":"@account.password"}
+    };
+    flow.expect status "201";
+    flow.expect resBody "role" equals "member";
+    flow.extract resBody "id" as "newUserId";
+  When "Assign Booking approver to that member through the API"
+    flow.api.request {
+      "method":"PATCH","url":"/api/admin/users/@newUserId/role",
+      "json":{"role":"approver"}
+    };
+    flow.expect status "200";
+    flow.expect resBody "id" equals "@newUserId";
+    flow.expect resBody "role" equals "approver";
+  When "Open the practice app and sign in with the new account"
+    flow.open "/";
+    flow.click link "Sign in";
+    flow.type input "Email" "@account.email";
+    flow.passcode input "Password" "@account.password";
+    flow.click button "Sign in";
+  Then "The browser shows the same account and its approval permission"
+    flow.expect visible "Your account";
+    flow.assert.that {
+      "selector":"section[data-user-id]",
+      "condition":"attribute","attribute":"data-user-id","value":"@newUserId"
+    };
+    flow.expect visible "Can approve bookings";

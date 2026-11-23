@@ -1,0 +1,52 @@
+.practice-tables { display: grid; gap: 22px; }
+.tables-heading, .tables-panel-head, .table-controls, .table-filters, .table-jumps {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.tables-heading, .tables-panel-head { justify-content: space-between; gap: 12px 20px; }
+.tables-heading p { color: #625475; margin: 4px 0 0; }
+.practice-tables form, .practice-tables .notice { margin: 0; }
+.table-controls button, .tables-panel button, .tables-panel select { min-height: 36px; }
+.table-jumps { gap: 5px 18px; padding: 12px 0; border-block: 1px solid #ded6e9; }
+.table-jumps a { padding-block: 3px; font-size: .88rem; text-underline-offset: .2em; }
+.tables-panel { min-width: 0; overflow: hidden; border: 1px solid #ded6e9; border-radius: 14px; background: #fff; }
+.tables-panel, .tables-panel tr { scroll-margin-block: 14px; }
+.tables-panel-head { padding: 16px 20px; }
+.tables-panel-head h2 { font-size: 1.25rem; letter-spacing: -.025em; }
+.table-reference { color: #5f4c74; font: 600 .9rem ui-monospace, monospace; }
+.table-filters label { display: inline-flex; align-items: center; gap: 7px; margin: 0; }
+.table-filters select { padding-block: 4px; }
+.table-scroll { max-width: 100%; overflow-x: auto; }
+.table-scroll:focus-visible { outline-offset: -3px; }
+.tables-panel table { width: 100%; border-collapse: collapse; font-size: .92rem; text-align: start; font-variant-numeric: tabular-nums; }
+.tables-panel :is(td, th) { text-align: start; padding: 11px 16px; border-top: 1px solid #ebe5f1; }
+.tables-panel thead { background: #f5f1fa; color: #4e405d; font-size: .84rem; }
+.tables-panel tbody th { font-weight: 650; }
+.tables-panel td:first-child { white-space: nowrap; }
+.tables-panel td form { display: flex; align-items: center; gap: 8px; }
+.tables-panel td button { white-space: nowrap; }
+.tables-panel td input { margin: 0; width: 100%; min-width: 9rem; }
+.tables-panel td input[type="email"] { min-width: 15rem; }
+.tables-panel td input[type="number"] { min-width: 7rem; }
+.fleet-state { display: inline-block; white-space: nowrap; padding: 3px 9px; border-radius: 15px; font-size: .83rem; font-weight: 650; }
+.fleet-state[data-state="Ready"] { color: #14563d; background: #e3f4e9; }
+.fleet-state[data-state="Service hold"] { color: #73460c; background: #fff0d2; }
+.fleet-state[data-state="On hire"] { color: #4c367d; background: #eee7fb; }
+#rental-invoice :is(th, td):not(:first-child) { text-align: end; }
+#rental-invoice tfoot { background: #f8f5fc; font-weight: 700; }
+#branch-pickup-slots :is(th, td):not(:first-child) { text-align: center; }
+.table-empty { padding: 17px 20px; color: #5c536b; }
+.tables-panel .payment-detail > td { padding: 16px 24px; background: #faf8fc; white-space: normal; }
+.payment-detail h3 { margin: 0 0 10px; font-size: .94rem; }
+.payment-detail table { background: #fff; }
+@media (max-width: 700px) {
+  .practice-tables { gap: 16px; }
+  .tables-panel-head { align-items: flex-start; padding: 13px; }
+  .table-filters { gap: 8px; }
+  .table-filters label { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .table-filters { align-items: flex-end; }
+  .tables-panel :is(td, th) { padding: 9px 11px; }
+  .table-jumps { gap: 4px 14px; }
+}

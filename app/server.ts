@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { catalog, categories, deliveryOptions, seedAccounts, type Account } from './catalog.ts';
+import { createTableStore } from './table-data.ts';
+import { submitTables, tablesPage } from './table-page.ts';
 import { adminPage, catalogPage, errorPage, loginPage } from './pages.ts';
 import { bookingDetails, bookingsPage, carPage, receiptPage, retryReceiptPage } from './booking-pages.ts';
 import { bookingStatuses, canApprove, createBookingStore, receiptData, seedDemoBookings } from './booking.ts';
@@ -11,10 +13,14 @@ import { createSignupStore, verificationMinutes } from './signup.ts';
 import { inboxPage, signupPage, verifyEmailPage } from './signup-pages.ts';
 
 const publicAssets = new Map([
+  ['/practice-tables.css', 'text/css; charset=utf-8'],
   ['/styles.css', 'text/css; charset=utf-8'],
+  ['/password-visibility.js', 'text/javascript; charset=utf-8'],
   ['/flowstride-logo.png', 'image/png'],
   ['/catalog-hero.jpg', 'image/jpeg'],
 ]);
+
+const contentPolicy = "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
 
 function html(res: http.ServerResponse, body: string, status = 200) {
   res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8' }).end(body);
@@ -35,6 +41,7 @@ function readCookie(req: http.IncomingMessage, name: string) {
 const publicAccount = ({ id, name, email, role }: Account) => ({ id, name, email, role });
 
 export async function startPracticeApp(port = 4355, { demo = false } = {}) {
+  const tables = createTableStore();
   const bookings = createBookingStore();
   const accounts = seedAccounts(demo);
   if (demo) seedDemoBookings(bookings, accounts);
@@ -91,7 +98,7 @@ export async function startPracticeApp(port = 4355, { demo = false } = {}) {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
-    res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
+    res.setHeader('Content-Security-Policy', contentPolicy);
     const site = req.headers['sec-fetch-site'];
     if (req.headers.host !== host || (req.headers.origin && req.headers.origin !== origin) ||
         site === 'cross-site' || site === 'same-site') {
@@ -100,6 +107,9 @@ export async function startPracticeApp(port = 4355, { demo = false } = {}) {
     const url = new URL(req.url || '/', origin);
     if (url.origin !== origin) return json(res, 403, { error: 'Use the local practice app address.' });
     const route = url.pathname;
+    if (route === '/signup' || route === '/login') {
+      res.setHeader('Content-Security-Policy', contentPolicy + "; script-src 'self'");
+    }
     const method = req.method;
     const sid = readCookie(req, cookieName);
     const signupToken = readCookie(req, signupCookieName);
@@ -112,6 +122,10 @@ export async function startPracticeApp(port = 4355, { demo = false } = {}) {
     const adminRoute = route === '/admin' || route.startsWith('/admin/') || route.startsWith('/api/admin/');
     const bookingView = /^\/bookings\/(BK-\d+)(?:\/(receipt|receipt\/download))?$/.exec(route);
     try {
+      if (route === '/tables') {
+        if (method === 'GET') return html(res, tablesPage(tables, url.searchParams, account));
+        if (method === 'POST') return redirect(res, submitTables(tables, url.searchParams, await readForm(req)));
+      }
       if (method === 'GET' && route === '/health') return json(res, 200, { status: 'ready' });
       const contentType = publicAssets.get(route);
       if (method === 'GET' && contentType) {
@@ -284,6 +298,7 @@ export async function startPracticeApp(port = 4355, { demo = false } = {}) {
       const invalidJson = error instanceof SyntaxError;
       const status = error instanceof InputError ? error.status : invalidJson ? 400 : 500;
       const message = error instanceof InputError ? error.message : invalidJson ? 'Invalid JSON.' : 'The practice app could not complete the request.';
+      if (route === '/tables') return html(res, tablesPage(tables, url.searchParams, account, message), status);
       if (account && bookingView?.[2] === 'receipt' && status === 503) {
         return html(res, retryReceiptPage(bookingView[1]!, account), status);
       }

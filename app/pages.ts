@@ -17,7 +17,9 @@ function workspaceLinks(account: Account, current?: WorkspacePage) {
     `<a href="${href}"${current === key ? ' aria-current="page"' : ''}>${label}</a>`).join('');
 }
 
-export function layout(title: string, content: string, account?: Account, workspace?: WorkspacePage) {
+export function layout(title: string, content: string, account?: Account, area?: WorkspacePage | 'tables') {
+  const tables = area === 'tables';
+  const workspace = area === 'tables' ? undefined : area;
   const signOut = '<form method="post" action="/logout"><button class="quiet">Sign out</button></form>';
   const nav = account
     ? (workspace ? signOut : workspaceLinks(account) + signOut)
@@ -38,11 +40,12 @@ export function layout(title: string, content: string, account?: Account, worksp
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escape(title)} | Flowstride Practice</title>
 <link rel="stylesheet" href="/styles.css">
+${tables ? '<link rel="stylesheet" href="/practice-tables.css">' : ''}
 </head>
 <body>
 <a class="skip-link" href="#main-content">Skip to content</a>
 <header class="topbar"><a class="brand" href="/"><img src="/flowstride-logo.png" alt="" width="35" height="35"> Flowstride Practice</a>
-<nav aria-label="Main navigation"><a href="/">Catalog</a>${nav}</nav></header>
+<nav aria-label="Main navigation"><a href="/">Catalog</a><a href="/tables"${tables ? ' aria-current="page"' : ''}>Tables</a>${nav}</nav></header>
 ${body}
 </body>
 </html>`;
@@ -79,13 +82,33 @@ export function catalogPage(cars: Car[], category: string, account?: Account, se
 </section>`, account);
 }
 
+export function passwordField(mode: 'login' | 'signup') {
+  const id = mode + '-password';
+  const attributes = mode === 'signup'
+    ? 'placeholder="Create a password" autocomplete="new-password" minlength="8" maxlength="128" aria-describedby="password-hint"'
+    : 'placeholder="Enter password" autocomplete="current-password"';
+  return `<div class="password-field">
+      <label for="${id}">Password
+        <input id="${id}" name="password" type="password" required ${attributes}>
+      </label>
+      <button type="button" class="password-toggle" aria-controls="${id}" aria-label="Show password" title="Show password" hidden>
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 12s3.7-7 10-7 10 7 10 7-3.7 7-10 7S2 12 2 12Z"/>
+          <circle cx="12" cy="12" r="3"/>
+          <path class="eye-slash" d="m3 3 18 18"/>
+        </svg>
+      </button>
+    </div>
+    <script src="/password-visibility.js" defer></script>`;
+}
+
 export function loginPage(error = '', next = '', registered = false) {
   return layout('Sign in', `<section class="panel narrow auth-panel"><h1>Sign in</h1>
   ${registered ? '<p class="notice notice-success" role="status">Account verified. Sign in to continue.</p>' : ''}
   ${error ? `<p class="notice" role="alert">${escape(error)}</p>` : ''}
   <form method="post" action="/login${next ? '?next=' + encodeURIComponent(next) : ''}">
-    <label>Email <input id="login-email" name="email" type="email" autocomplete="username" required></label>
-    <label>Password <input id="login-password" name="password" type="password" autocomplete="current-password" required></label>
+    <label>Email <input id="login-email" name="email" type="email" placeholder="Enter email" autocomplete="username" required></label>
+    ${passwordField('login')}
     <button>Sign in</button>
   </form></section>`);
 }

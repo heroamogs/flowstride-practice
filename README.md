@@ -24,6 +24,21 @@ Open [http://127.0.0.1:4355](http://127.0.0.1:4355). If that port is taken, star
 
 Pick a car, sign in as the driver, choose pickup and return dates, and place a booking. The simulated checkout can succeed or decline. A successful booking appears in **My bookings** as **Awaiting approval**. Sign in as the admin or a Booking approver to approve it in **Review bookings**. The driver can cancel a booking before or on its pickup date to release the dates. After approval, the driver can open the receipt in a new tab and download the JSON file. The admin dashboard shows the booking queue, recent decisions, and team access. The approver has the booking queue and approval actions.
 
+## Practice with six tables
+
+Open **Tables** in the main navigation or visit [the local tables page](http://127.0.0.1:4355/tables). Anyone using the local app can open it without signing in.
+
+| Table | Try it |
+| --- | --- |
+| Renter directory | Find Tarela Briggs by email, sort by full name, and edit her membership. |
+| Fleet register | Filter by **Service hold**. Edit the Nissan's odometer to 16,040 km with **Recently updated** selected and watch its row move to the top. |
+| Rental invoice | Inspect the three charge rows and the separate ₦97,500 footer total. |
+| Service clearance queue | Release CL-851. The Peugeot becomes **Ready** in the fleet register. Release CL-867 to empty the queue. |
+| Branch pickup slots | Read across the Uyo row: four slots at 10:00 and zero at 12:00. |
+| Reservation payments | Open both reservations to compare their nested payment tables. PAY-927 is the ₦15,000 card payment for BK-6308. |
+
+**Load email error** changes Morayo's email to `morayo.dada.example.test` so students can practice diagnosing a failed check. **Reset practice data** restores the six tables, their default ordering, and the collapsed payment rows. Table edits are shared across tabs on the same running instance and reset on restart. The reset button affects only these teaching records. Keep student test scripts in the separate project described below.
+
 ## Sign up and book as a new Member
 
 Select **Sign up** and enter a fictional email ending in `.test`, such as `new-driver@example.test`, and a practice password. Open the **practice inbox** from the verification page and copy the six-digit code. The code expires after 10 minutes. The inbox belongs to the browser that started the sign-up and runs entirely on localhost.

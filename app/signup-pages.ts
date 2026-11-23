@@ -1,4 +1,4 @@
-import { escape, layout } from './pages.ts';
+import { escape, layout, passwordField } from './pages.ts';
 import { verificationMinutes } from './signup.ts';
 
 export function signupPage(error = '', fields = { name: '', email: '' }) {
@@ -7,9 +7,9 @@ export function signupPage(error = '', fields = { name: '', email: '' }) {
   <p class="auth-intro">Use a fictional email such as <strong>driver-new@example.test</strong> and a practice password.</p>
   ${error ? `<p class="notice" role="alert">${escape(error)}</p>` : ''}
   <form method="post" action="/signup">
-    <label>Full name <input name="name" value="${escape(fields.name)}" required maxlength="80" autocomplete="name"></label>
-    <label>Email <input name="email" type="email" value="${escape(fields.email)}" required maxlength="150" autocomplete="email"></label>
-    <label>Password <input name="password" type="password" required minlength="8" maxlength="128" autocomplete="new-password" aria-describedby="password-hint"></label>
+    <label>Full name <input name="name" placeholder="Enter full name" value="${escape(fields.name)}" required maxlength="80" autocomplete="name"></label>
+    <label>Email <input name="email" type="email" placeholder="Enter email" value="${escape(fields.email)}" required maxlength="150" autocomplete="email"></label>
+    ${passwordField('signup')}
     <p id="password-hint" class="field-hint">Use 8 to 128 characters.</p>
     <button>Create account</button>
   </form>
